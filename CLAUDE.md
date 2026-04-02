@@ -23,40 +23,37 @@ L'application est destinée à un usage médical ou ergonomique : piloter la hau
 
 ---
 
-## Contraintes techniques héritées
+## Contraintes techniques
 
-- **Classe existante `ACTVerinDL14`** : fournie dans le projet `WpfActiback`. Ne pas modifier.
-- **Dépendance `ACTValise`** : objet de configuration central de WpfActiback.  
-  Requis par `MoveDown`, `MoveToToise`, `MoveTo`, `MoveToFormatFloat`.  
-  Contient : seuil de force (`ForceToise`), hauteur maxi (`HauteurToise`), lecture capteur (`MonManagerThread.MyF`).
 - **Bibliothèque `SitStand` / `Usb2Lin`** : SDK propriétaire Linak, distribué en DLL.  
-  Lève des `SEHException` et `ConnectionException` lors de déconnexions USB.
-- **Unités internes** : `ACTVerinDL14` travaille en **cm** (float). Le point zéro physique est `_hauteurAZero = 15300` (unités internes = 1/100 de cm, soit 153 cm plancher).
+  Seule dépendance externe. Lève des `SEHException` et `ConnectionException` lors de déconnexions USB.
+- **`VerinDL14`** : classe écrite dans ToiseApp (`Model/VerinDL14.cs`). N'utilise que `SitStand.dll`. Inspirée de `VerinDL14.cs` (WpfSpineoPTV). Aucun lien avec WpfActiback.
+- **Unités internes** : `VerinDL14` travaille en **cm** (float). Le point zéro physique est `HauteurAZero = 15300` (unités internes = 1/100 de cm, soit 153 cm plancher).
 - **Unités exposées à l'utilisateur** : **mm** (conversion dans `ToiseService`).
+- **Pas de vérification de charge** : sans capteur de force Arduino, `MoveDown()` descend sans condition (contrairement à `VerinDL14` qui vérifiait `MyF < ForceToise`).
 
 ---
 
-## Spécifications déduites de l'analyse de `ACTVerinDL14`
+## API de `VerinDL14` (Model/VerinDL14.cs)
 
-### Méthodes disponibles et leurs prérequis
+### Méthodes publiques
 
-| Méthode | ACTValise requis | Remarque |
-|---|---|---|
-| `MoveUp()` | Non | Mouvement continu vers le haut |
-| `MoveDown(valise)` | Oui | Vérifie `MyF < ForceToise` avant de descendre |
-| `Stop()` | Non | Envoie commande 0x80 |
-| `MoveToToise(cm, valise)` | Oui | Boucle jusqu'à ±0.01 cm de la cible |
-| `MoveTo(cm, valise)` | Oui | Boucle jusqu'à ±0.1 cm de la cible (moins précis) |
-| `GetPositionToise()` | Non | Retourne la hauteur en **cm** |
-| `OpenVerin()` | Non | Retourne bool, met à jour `EtatCarteArduinoVerin` |
-| `CloseDevice()` | Non | Guard anti-réentrance via `Interlocked` |
+| Méthode | Remarque |
+|---|---|
+| `OpenVerin()` | Retourne bool. Appelé automatiquement dans le constructeur. Peut être rappelé pour reconnecter. |
+| `MoveUp()` | Mouvement continu vers le haut |
+| `MoveDown()` | Mouvement continu vers le bas (sans vérification de charge) |
+| `Stop()` | Envoie commande 0x80 |
+| `MoveToToise(cm)` | Boucle jusqu'à ±0.01 cm de la cible — bloquant, à appeler via `Task.Run` |
+| `GetPositionToise()` | Retourne la hauteur en **cm** |
+| `CloseDevice()` | Guard anti-réentrance via `Interlocked` |
 
 ### Événements
 
 - `VerinDisconnected` : déclenché via `SetDisconnected()` à la première détection d'erreur.  
-  À écouter pour mettre à jour l'UI sans polling.
+  Relayé par `ToiseService.Disconnected` vers le ViewModel.
 
-### Points de fragilité documentés dans le code source
+### Points de fragilité
 
 - **SEHException** : levée par le SDK Linak lors de perte USB. Gérée via `SafeCloseHandle()` + `GC.SuppressFinalize`.
 - **Double libération du handle** : corrigée par `_closingFlag` Interlocked + suppression du finalizer avant `CloseDevice()`.
@@ -85,16 +82,15 @@ L'application est destinée à un usage médical ou ergonomique : piloter la hau
                  │ appels métier
 ┌────────────────▼────────────────────────────────────────┐
 │  ToiseService (Model)                                   │
-│  - Wraps ACTVerinDL14                                  │
+│  - Wraps VerinDL14                                     │
 │  - Conversion mm ↔ cm                                  │
 │  - Relaye VerinDisconnected                            │
 │  - IDisposable → CloseDevice() à la fermeture          │
 └────────────────┬────────────────────────────────────────┘
                  │ composition
 ┌────────────────▼────────────────────────────────────────┐
-│  ACTVerinDL14 (WpfActiback — ne pas modifier)          │
-│  + ACTValise  (config, capteur de force, Arduino)      │
-│  + Usb2Lin    (SDK Linak SitStand)                     │
+│  VerinDL14 (ToiseApp.Model — dans ce projet)           │
+│  + Usb2Lin  (SDK Linak SitStand — DLL propriétaire)    │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -109,8 +105,8 @@ ToiseApp/
 ├── Helpers/
 │   └── RelayCommand.cs             ← ICommand générique (Action + Func<bool>)
 ├── Model/
-│   ├── ToiseService.cs             ← Façade sur ACTVerinDL14, unités en mm
-│   └── DefaultValise.cs            ← Stub ACTValise sans capteur de force
+│   ├── VerinDL14.cs                ← Pilotage direct Linak via Usb2Lin
+│   └── ToiseService.cs             ← Façade sur VerinDL14, unités en mm
 ├── ViewModel/
 │   └── ToiseViewModel.cs           ← Toute la logique de présentation
 └── View/
@@ -136,19 +132,65 @@ ToiseApp/
 
 ## Points d'intégration à configurer
 
-### 1. Référence projet dans `ToiseApp.csproj`
+### 1. Ajout des DLLs tierces
+
+#### Répertoire à créer
+
+Créer un dossier `libs/` **à la racine du projet** (au même niveau que `ToiseApp.csproj`) :
+
+```
+ToiseApp/
+├── libs/
+│   ├── WpfActiback.dll   ← copier ici
+│   ├── SitStand.dll      ← copier ici (SDK Linak)
+│   └── Usb2Lin.dll       ← copier ici (pont USB-to-LIN)
+├── ToiseApp.csproj
+└── ...
+```
+
+> **Commande PowerShell pour créer le dossier :**
+> ```powershell
+> mkdir libs
+> ```
+> Puis copier les DLLs fournies par Linak / WpfActiback dans ce dossier.
+
+#### Référence dans `ToiseApp.csproj`
+
+Les références sont déjà configurées dans le `.csproj` avec `HintPath` pointant vers `libs\` :
 
 ```xml
-<!-- Si WpfActiback est un projet de la même solution -->
-<ProjectReference Include="..\WpfActiback\WpfActiback.csproj" />
+<ItemGroup>
+  <Reference Include="WpfActiback">
+    <HintPath>libs\WpfActiback.dll</HintPath>
+  </Reference>
+  <Reference Include="SitStand">
+    <HintPath>libs\SitStand.dll</HintPath>
+  </Reference>
+  <Reference Include="Usb2Lin">
+    <HintPath>libs\Usb2Lin.dll</HintPath>
+  </Reference>
+</ItemGroup>
+```
 
-<!-- Si c'est une DLL précompilée -->
-<Reference Include="WpfActiback">
-  <HintPath>..\libs\WpfActiback.dll</HintPath>
-</Reference>
-<Reference Include="SitStand">
-  <HintPath>..\libs\SitStand.dll</HintPath>
-</Reference>
+Les DLLs sont aussi déclarées en `Content` avec `CopyToOutputDirectory = PreserveNewest` : elles seront automatiquement copiées dans `bin\Debug\` ou `bin\Release\` à chaque build.
+
+#### Git — ne pas versionner les DLLs binaires
+
+Ajouter dans `.gitignore` :
+
+```
+libs/
+```
+
+> Les DLLs Linak sont propriétaires et ne doivent pas être poussées sur GitHub.  
+> Les développeurs doivent les obtenir séparément et les placer dans `libs/` manuellement.
+
+#### Alternative : référencer WpfActiback comme projet source
+
+Si WpfActiback est disponible en code source dans la même solution, commenter le bloc `<Reference>` et décommenter :
+
+```xml
+<ProjectReference Include="..\WpfActiback\WpfActiback.csproj" />
 ```
 
 ### 2. `DefaultValise` vs vraie `ACTValise`
@@ -169,7 +211,7 @@ ACTValise valise = new ACTValise(/* paramètres réels */);
 
 ### 3. Hauteur plancher
 
-`_hauteurAZero = 15300` est codé en dur dans `ACTVerinDL14`.  
+`_hauteurAZero = 15300` est codé en dur dans `VerinDL14`.  
 La position minimale physique est donc **1530 mm (153 cm)**.  
 La valeur par défaut de `TargetHeightMm` dans le ViewModel est initialisée à `1530f`.
 
@@ -179,14 +221,14 @@ La valeur par défaut de `TargetHeightMm` dans le ViewModel est initialisée à 
 
 - **Refresh désactivé pendant `IsBusy`** : quand un `MoveToHeight` (async) est en cours, le timer ne lit pas la position pour éviter les conflits d'accès au handle.
 - **`Stop()` annule le `MoveToHeight` en cours** : via `CancellationTokenSource` dans `ToiseViewModel`.
-- **Dispose chain** : `MainWindow.OnClosed` → `ToiseViewModel.Dispose()` → `ToiseService.Dispose()` → `ACTVerinDL14.CloseDevice()`.
+- **Dispose chain** : `MainWindow.OnClosed` → `ToiseViewModel.Dispose()` → `ToiseService.Dispose()` → `VerinDL14.CloseDevice()`.
 - **Thread-safety** : tous les retours vers l'UI depuis `Task.Run` passent par `Application.Current.Dispatcher.Invoke`.
 
 ---
 
 ## Évolutions possibles
 
-- Ajouter une **limite basse configurable** (actuellement gérée uniquement côté `ACTVerinDL14`).
+- Ajouter une **limite basse configurable** (actuellement gérée uniquement côté `VerinDL14`).
 - Intégrer le **retour capteur de force** si un Arduino est présent (`MonManagerThread.MyF`).
 - Ajouter un **historique des positions** (log CSV).
 - Passer à **MVVM Toolkit** (CommunityToolkit.Mvvm) si le projet grossit (source generators, `ObservableProperty`).

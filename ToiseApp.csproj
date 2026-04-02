@@ -12,22 +12,25 @@
     <LangVersion>9.0</LangVersion>
   </PropertyGroup>
 
-  <!-- ── Référence au projet WpfActiback existant ────────────────────────── -->
-  <!-- Adaptez le chemin selon la structure de votre solution -->
+  <!-- ── DLLs tierces (Linak SDK + WpfActiback) ────────────────────────── -->
+  <!-- Les DLLs sont placées dans le dossier libs/ à la racine du projet   -->
   <ItemGroup>
-    <ProjectReference Include="..\WpfActiback\WpfActiback.csproj" />
+    <Reference Include="LinakUsb">
+      <HintPath>libs\LinakUsbDll.dll</HintPath>
+    </Reference>
+    <Reference Include="SitStand.Base">
+      <HintPath>.\SitStand.Base.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
-  <!-- ── Si WpfActiback est distribué sous forme de DLL plutôt que projet ── -->
-  <!--
+  <!-- ── Copier les DLLs natives dans le dossier de sortie ──────────────── -->
   <ItemGroup>
-    <Reference Include="WpfActiback">
-      <HintPath>..\libs\WpfActiback.dll</HintPath>
-    </Reference>
-    <Reference Include="SitStand">
-      <HintPath>..\libs\SitStand.dll</HintPath>
-    </Reference>
+    <Content Include="libs\SitStand.Base.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="libs\LinakUsbDll.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
-  -->
 
 </Project>
