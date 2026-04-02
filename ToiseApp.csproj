@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- Ciblez le même framework que WpfActiback -->
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>ToiseApp</AssemblyName>
+    <RootNamespace>ToiseApp</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>9.0</LangVersion>
+  </PropertyGroup>
+
+  <!-- ── Référence au projet WpfActiback existant ────────────────────────── -->
+  <!-- Adaptez le chemin selon la structure de votre solution -->
+  <ItemGroup>
+    <ProjectReference Include="..\WpfActiback\WpfActiback.csproj" />
+  </ItemGroup>
+
+  <!-- ── Si WpfActiback est distribué sous forme de DLL plutôt que projet ── -->
+  <!--
+  <ItemGroup>
+    <Reference Include="WpfActiback">
+      <HintPath>..\libs\WpfActiback.dll</HintPath>
+    </Reference>
+    <Reference Include="SitStand">
+      <HintPath>..\libs\SitStand.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  -->
+
+</Project>
