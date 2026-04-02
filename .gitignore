@@ -426,3 +426,5 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+# ignorer le repertoire libs
+[Ll]ibs/
