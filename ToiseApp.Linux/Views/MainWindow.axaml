@@ -1,0 +1,169 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ToiseApp.Linux.ViewModels"
+        x:Class="ToiseApp.Linux.Views.MainWindow"
+        x:DataType="vm:ToiseViewModel"
+        Title="Contrôle Toise — Linak DL14"
+        Height="520" Width="400"
+        MinHeight="480" MinWidth="380"
+        Background="#F0F2F5"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Styles>
+        <!-- Bouton primary (bleu) -->
+        <Style Selector="Button.primary">
+            <Setter Property="Foreground"       Value="White"/>
+            <Setter Property="Background"       Value="#2563EB"/>
+            <Setter Property="BorderThickness"  Value="0"/>
+            <Setter Property="Padding"          Value="12,8"/>
+            <Setter Property="FontSize"         Value="14"/>
+            <Setter Property="FontWeight"       Value="SemiBold"/>
+            <Setter Property="Cursor"           Value="Hand"/>
+            <Setter Property="CornerRadius"     Value="6"/>
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.85"/>
+        </Style>
+        <Style Selector="Button.primary:disabled /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+
+        <!-- Bouton stop (rouge) -->
+        <Style Selector="Button.stop">
+            <Setter Property="Foreground"       Value="White"/>
+            <Setter Property="Background"       Value="#DC2626"/>
+            <Setter Property="BorderThickness"  Value="0"/>
+            <Setter Property="Padding"          Value="12,8"/>
+            <Setter Property="FontSize"         Value="14"/>
+            <Setter Property="FontWeight"       Value="SemiBold"/>
+            <Setter Property="Cursor"           Value="Hand"/>
+            <Setter Property="CornerRadius"     Value="6"/>
+        </Style>
+        <Style Selector="Button.stop:pointerover /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.85"/>
+        </Style>
+        <Style Selector="Button.stop:disabled /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+
+        <!-- Bouton secondary (gris) -->
+        <Style Selector="Button.secondary">
+            <Setter Property="Foreground"       Value="White"/>
+            <Setter Property="Background"       Value="#64748B"/>
+            <Setter Property="BorderThickness"  Value="0"/>
+            <Setter Property="Padding"          Value="12,8"/>
+            <Setter Property="FontSize"         Value="14"/>
+            <Setter Property="FontWeight"       Value="SemiBold"/>
+            <Setter Property="Cursor"           Value="Hand"/>
+            <Setter Property="CornerRadius"     Value="6"/>
+        </Style>
+        <Style Selector="Button.secondary:disabled /template/ ContentPresenter">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- Titre -->
+            <RowDefinition Height="Auto"/>  <!-- Hauteur courante -->
+            <RowDefinition Height="Auto"/>  <!-- Contrôle manuel -->
+            <RowDefinition Height="Auto"/>  <!-- Déplacement cible -->
+            <RowDefinition Height="Auto"/>  <!-- Pas + Reconnecter -->
+            <RowDefinition Height="*"/>     <!-- Barre de statut -->
+        </Grid.RowDefinitions>
+
+        <!-- ── Titre ─────────────────────────────────────────────────────── -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+            <Ellipse Width="12" Height="12" Margin="0,0,8,0"
+                     VerticalAlignment="Center"
+                     Fill="{Binding ConnectionBrush}"/>
+            <TextBlock Text="Contrôle Toise — Linak DL14"
+                       FontSize="18" FontWeight="Bold" Foreground="#1E293B"/>
+        </StackPanel>
+
+        <!-- ── Carte : Hauteur courante ───────────────────────────────────── -->
+        <Border Grid.Row="1" Background="White" CornerRadius="10" Padding="16"
+                Margin="0,0,0,12" BoxShadow="0 1 8 0 #14000000">
+            <StackPanel>
+                <TextBlock Text="POSITION ACTUELLE"
+                           FontSize="11" FontWeight="SemiBold" Foreground="#94A3B8"/>
+                <TextBlock Text="{Binding CurrentHeightMm, StringFormat={}{0:F0} mm}"
+                           FontSize="48" FontWeight="Bold" Foreground="#1E293B"
+                           HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                <TextBlock Text="{Binding CurrentHeightCm}"
+                           FontSize="16" Foreground="#64748B" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Carte : Contrôle manuel ────────────────────────────────────── -->
+        <Border Grid.Row="2" Background="White" CornerRadius="10" Padding="16"
+                Margin="0,0,0,12" BoxShadow="0 1 8 0 #14000000">
+            <StackPanel>
+                <TextBlock Text="CONTRÔLE MANUEL"
+                           FontSize="11" FontWeight="SemiBold" Foreground="#94A3B8"
+                           Margin="0,0,0,10"/>
+                <Grid ColumnDefinitions="*,8,*,8,*">
+                    <Button Grid.Column="0" Content="▲  Monter" Classes="primary"
+                            Command="{Binding MoveUpCommand}" Height="48"/>
+                    <Button Grid.Column="2" Content="■  Stop" Classes="stop"
+                            Command="{Binding StopCommand}" Height="48"/>
+                    <Button Grid.Column="4" Content="▼  Descendre" Classes="primary"
+                            Command="{Binding MoveDownCommand}" Height="48"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Carte : Déplacement cible ─────────────────────────────────── -->
+        <Border Grid.Row="3" Background="White" CornerRadius="10" Padding="16"
+                Margin="0,0,0,12" BoxShadow="0 1 8 0 #14000000">
+            <StackPanel>
+                <TextBlock Text="DÉPLACEMENT VERS UNE HAUTEUR CIBLE"
+                           FontSize="11" FontWeight="SemiBold" Foreground="#94A3B8"
+                           Margin="0,0,0,10"/>
+                <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+                    <TextBox Grid.Column="0"
+                             Text="{Binding TargetHeightMm}"
+                             FontSize="16" Padding="10,8" VerticalContentAlignment="Center"
+                             BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6"/>
+                    <TextBlock Grid.Column="2" Text="mm" FontSize="14"
+                               Foreground="#64748B" VerticalAlignment="Center"/>
+                    <Button Grid.Column="4" Content="Aller" Classes="primary"
+                            Command="{Binding MoveToCommand}" Width="80" Height="38"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Carte : Pas + Reconnecter ─────────────────────────────────── -->
+        <Border Grid.Row="4" Background="White" CornerRadius="10" Padding="16"
+                Margin="0,0,0,12" BoxShadow="0 1 8 0 #14000000">
+            <Grid ColumnDefinitions="*,16,Auto">
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="PAS DE DÉPLACEMENT"
+                               FontSize="11" FontWeight="SemiBold" Foreground="#94A3B8"
+                               Margin="0,0,0,8"/>
+                    <Grid ColumnDefinitions="*,6,Auto,6,*">
+                        <Button Grid.Column="0" Content="-" Classes="primary"
+                                Command="{Binding StepDownCommand}" Height="36" FontSize="18"/>
+                        <TextBox Grid.Column="2" Text="{Binding StepMm}"
+                                 Width="70" FontSize="14" Padding="6,4"
+                                 TextAlignment="Center" VerticalContentAlignment="Center"
+                                 BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6"/>
+                        <Button Grid.Column="4" Content="+" Classes="primary"
+                                Command="{Binding StepUpCommand}" Height="36" FontSize="18"/>
+                    </Grid>
+                </StackPanel>
+                <Button Grid.Column="2" Content="Reconnecter" Classes="secondary"
+                        Command="{Binding ReconnectCommand}"
+                        Width="110" Height="36" VerticalAlignment="Bottom"/>
+            </Grid>
+        </Border>
+
+        <!-- ── Barre de statut ────────────────────────────────────────────── -->
+        <Border Grid.Row="5" VerticalAlignment="Bottom" Background="White"
+                CornerRadius="6" Padding="12,8">
+            <TextBlock Text="{Binding StatusMessage}"
+                       FontSize="12" Foreground="#475569"
+                       TextTrimming="CharacterEllipsis"/>
+        </Border>
+    </Grid>
+</Window>

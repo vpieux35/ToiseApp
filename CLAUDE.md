@@ -226,9 +226,125 @@ La valeur par défaut de `TargetHeightMm` dans le ViewModel est initialisée à 
 
 ---
 
+## Support Linux — Stratégie de build multi-plateforme
+
+### Contrainte fondamentale
+
+**WPF ne fonctionne que sur Windows.** Pour Linux, il faut :
+
+| Couche | Windows | Linux |
+|---|---|---|
+| UI framework | WPF (.NET 4.8) | **Avalonia UI** (.NET 8) |
+| Driver vérin | `VerinDL14.cs` (SitStand SDK) | **`VerinDL14Linux.cs`** (HidSharp) |
+| Runtime | `net48` | `net8.0` |
+
+### Structure recommandée (deux projets dans une solution)
+
+```
+ToiseApp.sln
+├── ToiseApp/               ← projet Windows (net48, WPF, SitStand)
+│   ├── Model/
+│   │   ├── VerinDL14.cs
+│   │   ├── VerinDL14Linux.cs   ← fichier présent mais non référencé dans ce csproj
+│   │   └── ToiseService.cs
+│   └── ...
+└── ToiseApp.Linux/         ← projet Linux (net8.0, Avalonia)  [à créer]
+    ├── App.axaml
+    ├── App.axaml.cs        ← composition root avec VerinDL14Linux
+    ├── Views/
+    │   └── MainWindow.axaml
+    ├── ViewModels/
+    │   └── ToiseViewModel.cs   ← identique ; remplacer DispatcherTimer par timer Avalonia
+    └── ToiseApp.Linux.csproj
+```
+
+> Pour éviter la duplication, `ToiseService.cs`, `ToiseViewModel.cs` et `RelayCommand.cs`
+> peuvent être partagés via un projet bibliothèque `ToiseApp.Core` (net8.0) si le projet grossit.
+
+### `VerinDL14Linux.cs` — Implémentation HidSharp
+
+Fichier : `Model/VerinDL14Linux.cs`  
+Dépendance NuGet : `HidSharp` (≥ 2.1.0)
+
+**Correspondance avec l'implémentation Windows :**
+
+| Windows (SitStand SDK) | Linux (HidSharp) |
+|---|---|
+| `new Usb2Lin()` + `FindAllLinakDevices()` | `DeviceList.Local.GetHidDevices(0x12D3)` |
+| `_cbd6.OpenDevice(path)` → `SafeHandle` | `device.TryOpen(out HidStream stream)` |
+| `_cbd6.SetFeature(handle, buf[64])` | `stream.SetFeatureReport(new byte[65] { reportId, ...buf })` |
+| `_cbd6.GetFeature(handle)` → `byte[64]` | `stream.GetFeatureReport(buf[65])` → payload = `buf[1..64]` |
+| `SEHException` + `ConnectionException` | `IOException` / `TimeoutException` |
+
+**Point clé HidSharp** : `SetFeatureReport` / `GetFeatureReport` exigent `byte[0]` = Report ID.  
+Le payload de 64 octets (identique au protocole Windows) commence à `byte[1]`.  
+`HidReportId = 0x00` est la valeur par défaut pour les devices à rapport unique.  
+Si le device en expose plusieurs, l'identifier avec : `lsusb -v | grep bReportID`
+
+**Prérequis système Linux** — règle udev pour accès sans root :
+```bash
+echo 'SUBSYSTEM=="hidraw", ATTRS{idVendor}=="12d3", MODE="0666"' \
+     | sudo tee /etc/udev/rules.d/99-linak.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+Vérifier que le device est détecté :
+```bash
+lsusb | grep -i linak       # → Bus 001 Device 003: ID 12d3:xxxx Linak
+ls /dev/hidraw*              # → /dev/hidraw0 (ou similaire)
+```
+
+### Générer les builds
+
+#### Build Windows (projet actuel)
+
+```powershell
+# Debug
+dotnet build ToiseApp/ToiseApp.csproj -c Debug
+
+# Release auto-contenu (un seul exe + DLLs dans bin\Release\net48\)
+dotnet build ToiseApp/ToiseApp.csproj -c Release
+```
+
+> Les DLLs Linak (`SitStand.Base.dll`, `LinakUsbDll.dll`) doivent être dans `libs/`
+> et seront copiées automatiquement dans le dossier de sortie.
+
+#### Build Linux (projet ToiseApp.Linux — à créer)
+
+```bash
+# Créer le projet Avalonia (une fois)
+dotnet new avalonia.mvvm -n ToiseApp.Linux -f net8.0
+
+# Ajouter HidSharp
+cd ToiseApp.Linux
+dotnet add package HidSharp
+
+# Build
+dotnet build -c Release
+
+# Publish — exécutable self-contained pour Linux x64
+dotnet publish -c Release -r linux-x64 --self-contained -o publish/linux-x64
+
+# Publish — exécutable self-contained pour Linux ARM64 (Raspberry Pi 4, etc.)
+dotnet publish -c Release -r linux-arm64 --self-contained -o publish/linux-arm64
+```
+
+#### Matrice des RIDs (Runtime Identifiers)
+
+| Cible | RID | Notes |
+|---|---|---|
+| Windows x64 | `win-x64` | Standard PC |
+| Windows x86 | `win-x86` | 32 bits (rare) |
+| Linux x64 | `linux-x64` | Standard PC/serveur |
+| Linux ARM64 | `linux-arm64` | Raspberry Pi 4, Pi 5 |
+| Linux ARM32 | `linux-arm` | Raspberry Pi 2/3 |
+
+---
+
 ## Évolutions possibles
 
 - Ajouter une **limite basse configurable** (actuellement gérée uniquement côté `VerinDL14`).
 - Intégrer le **retour capteur de force** si un Arduino est présent (`MonManagerThread.MyF`).
 - Ajouter un **historique des positions** (log CSV).
 - Passer à **MVVM Toolkit** (CommunityToolkit.Mvvm) si le projet grossit (source generators, `ObservableProperty`).
+- Extraire **`ToiseApp.Core`** (bibliothèque net8.0 partagée) pour mutualiser `ToiseService`, `ToiseViewModel`, `RelayCommand` entre le projet Windows et Linux.
