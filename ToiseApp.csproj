@@ -2,30 +2,40 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <!-- Ciblez le même framework que WpfActiback -->
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <AssemblyName>ToiseApp</AssemblyName>
     <RootNamespace>ToiseApp</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>12.0</LangVersion>
   </PropertyGroup>
 
-  <!-- ── DLLs tierces (Linak SDK + WpfActiback) ────────────────────────── -->
-  <!-- Les DLLs sont placées dans le dossier libs/ à la racine du projet   -->
+  <!-- Exclure le projet Linux et VerinDL14Linux (dépend de HidSharp) du glob Windows -->
   <ItemGroup>
-    <Reference Include="LinakUsb">
-      <HintPath>libs\LinakUsbDll.dll</HintPath>
-    </Reference>
+    <Compile Remove="ToiseApp.Linux\**" />
+    <Compile Remove="Model\VerinDL14Linux.cs" />
+    <EmbeddedResource Remove="ToiseApp.Linux\**" />
+    <Content Remove="ToiseApp.Linux\**" />
+    <None Remove="ToiseApp.Linux\**" />
+  </ItemGroup>
+
+  <!-- ── DLLs tierces Linak ────────────────────────────────────────────── -->
+  <!-- Les DLLs sont placées dans le dossier libs/ à la racine du projet   -->
+  <!-- SitStand.Base.dll = assembly managée Linak (référence compilateur) -->
+  <ItemGroup>
     <Reference Include="SitStand.Base">
-      <HintPath>.\SitStand.Base.dll</HintPath>
+      <HintPath>libs\SitStand.Base.dll</HintPath>
     </Reference>
   </ItemGroup>
 
-  <!-- ── Copier les DLLs natives dans le dossier de sortie ──────────────── -->
+  <!-- Copier les DLLs dans le dossier de sortie -->
+  <!-- LinakUsbDll.dll = driver natif (pas de metadata .NET → Content seul, pas Reference) -->
   <ItemGroup>
     <Content Include="libs\SitStand.Base.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="libs\SitStand.Base.resources.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="libs\LinakUsbDll.dll">

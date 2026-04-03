@@ -24,12 +24,12 @@ namespace ToiseApp.ViewModel
         private readonly DispatcherTimer _refreshTimer;
 
         // ── Champs de backing ─────────────────────────────────────────────────
-        private float  _currentHeightMm;
-        private float  _targetHeightMm  = 1530f;   // valeur par défaut : 153 cm
-        private float  _stepMm          = 10f;      // pas de déplacement en mm
-        private bool   _isConnected;
-        private string _statusMessage   = "Initialisation…";
-        private bool   _isBusy;
+        private float _currentHeightMm;
+        private float _targetHeightMm = 1530f;   // valeur par défaut : 153 cm
+        private float _stepMm = 10f;      // pas de déplacement en mm
+        private bool _isConnected;
+        private string _statusMessage = "Initialisation…";
+        private bool _isBusy;
 
         // ── Constructeur ──────────────────────────────────────────────────────
         public ToiseViewModel(ToiseService service)
@@ -40,17 +40,17 @@ namespace ToiseApp.ViewModel
             _service.Disconnected += OnVerinDisconnected;
 
             // Initialisation de l'état
-            IsConnected    = _service.IsConnected;
-            StatusMessage  = IsConnected ? "Connecté" : "Vérin non détecté";
+            IsConnected = _service.IsConnected;
+            StatusMessage = IsConnected ? "Connecté" : "Vérin non détecté";
 
             // Commandes
-            MoveUpCommand      = new RelayCommand(_ => ExecuteMoveUp(),      _ => CanOperate);
-            MoveDownCommand    = new RelayCommand(_ => ExecuteMoveDown(),    _ => CanOperate);
-            StopCommand        = new RelayCommand(_ => ExecuteStop(),        _ => CanOperate);
-            MoveToCommand      = new RelayCommand(_ => ExecuteMoveTo(),      _ => CanOperate);
-            StepUpCommand      = new RelayCommand(_ => ExecuteStepUp(),      _ => CanOperate);
-            StepDownCommand    = new RelayCommand(_ => ExecuteStepDown(),    _ => CanOperate);
-            ReconnectCommand   = new RelayCommand(_ => ExecuteReconnect(),   _ => !IsBusy);
+            MoveUpCommand = new RelayCommand(_ => ExecuteMoveUp(), _ => CanOperate);
+            MoveDownCommand = new RelayCommand(_ => ExecuteMoveDown(), _ => CanOperate);
+            StopCommand = new RelayCommand(_ => ExecuteStop(), _ => CanOperate);
+            MoveToCommand = new RelayCommand(_ => ExecuteMoveTo(), _ => CanOperate);
+            StepUpCommand = new RelayCommand(_ => ExecuteStepUp(), _ => CanOperate);
+            StepDownCommand = new RelayCommand(_ => ExecuteStepDown(), _ => CanOperate);
+            ReconnectCommand = new RelayCommand(_ => ExecuteReconnect(), _ => !IsBusy);
 
             // Timer de rafraîchissement (toutes les 500 ms)
             _refreshTimer = new DispatcherTimer
@@ -123,12 +123,12 @@ namespace ToiseApp.ViewModel
 
         // ── Commandes ─────────────────────────────────────────────────────────
 
-        public ICommand MoveUpCommand    { get; }
-        public ICommand MoveDownCommand  { get; }
-        public ICommand StopCommand      { get; }
-        public ICommand MoveToCommand    { get; }
-        public ICommand StepUpCommand    { get; }
-        public ICommand StepDownCommand  { get; }
+        public ICommand MoveUpCommand { get; }
+        public ICommand MoveDownCommand { get; }
+        public ICommand StopCommand { get; }
+        public ICommand MoveToCommand { get; }
+        public ICommand StepUpCommand { get; }
+        public ICommand StepDownCommand { get; }
         public ICommand ReconnectCommand { get; }
 
         // ── Handlers de commandes ─────────────────────────────────────────────
@@ -218,8 +218,8 @@ namespace ToiseApp.ViewModel
                 bool ok = _service.Reconnect();
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    IsBusy       = false;
-                    IsConnected  = ok;
+                    IsBusy = false;
+                    IsConnected = ok;
                     StatusMessage = ok ? "Reconnecté" : "Reconnexion échouée";
                     if (ok) _refreshTimer.Start();
                 });
@@ -248,7 +248,7 @@ namespace ToiseApp.ViewModel
             Application.Current.Dispatcher.Invoke(() =>
             {
                 _refreshTimer.Stop();
-                IsConnected   = false;
+                IsConnected = false;
                 StatusMessage = "⚠ Vérin déconnecté — cliquez Reconnecter";
             });
         }
